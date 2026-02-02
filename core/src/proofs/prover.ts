@@ -5,20 +5,22 @@
  * Uses URLs to load circuit files instead of filesystem paths.
  */
 
-import * as anchor from '@coral-xyz/anchor';
-import { groth16 } from 'snarkjs';
+import * as anchor from "@coral-xyz/anchor";
+import BN from "bn.js";
+import { groth16 } from "snarkjs";
 // @ts-ignore - ffjavascript doesn't have proper types
-import { utils } from 'ffjavascript';
-import { FIELD_SIZE } from '../crypto/constants.js';
-import { ConsoleLogger } from '../logger/console.js';
-import BN from 'bn.js';
+import { utils } from "ffjavascript";
+import { FIELD_SIZE } from "../crypto/constants.js";
+import { ConsoleLogger } from "../logger/console.js";
 
-const logger = new ConsoleLogger({ prefix: '[Mink]', minLevel: 'info' });
+const logger = new ConsoleLogger({ prefix: "[Mink]", minLevel: "info" });
+
+const CIRCUIT_VERSION = "1";
 
 // BN254 base field modulus (p) for G1 point negation
 // p = 21888242871839275222246405745257275088696311157297823662689037894645226208583
 const BN254_FIELD_MODULUS = new BN(
-  '21888242871839275222246405745257275088696311157297823662689037894645226208583'
+  "21888242871839275222246405745257275088696311157297823662689037894645226208583",
 );
 
 // Type definitions
@@ -43,7 +45,7 @@ const groth16Typed = groth16 as {
     zkeyFile: string,
     logger?: unknown,
     wtnsCalcOptions?: { singleThread?: boolean },
-    proverOptions?: { singleThread?: boolean }
+    proverOptions?: { singleThread?: boolean },
   ) => Promise<FullProveResult>;
 };
 
@@ -61,20 +63,24 @@ export async function prove(
   input: unknown,
   wasmUrl: string,
   zkeyUrl: string,
-  options?: { singleThread?: boolean }
+  options?: { singleThread?: boolean },
 ): Promise<FullProveResult> {
   // In browser, snarkjs can fetch from URLs directly
   // Use single-threaded mode by default in browser for better compatibility
   const useSingleThread = options?.singleThread ?? true;
   const singleThreadOpts = useSingleThread ? { singleThread: true } : undefined;
 
+  const cacheBuster = `?v=${CIRCUIT_VERSION}`;
+  const wasmUrlFresh = wasmUrl + cacheBuster;
+  const zkeyUrlFresh = zkeyUrl + cacheBuster;
+
   return await groth16Typed.fullProve(
     utils.stringifyBigInts(input),
-    wasmUrl,
-    zkeyUrl,
+    wasmUrlFresh,
+    zkeyUrlFresh,
     undefined, // logger
     singleThreadOpts, // wtnsCalcOptions
-    singleThreadOpts  // proverOptions
+    singleThreadOpts, // proverOptions
   );
 }
 
@@ -88,14 +94,9 @@ export async function prove(
 export async function proveWithBasePath(
   input: unknown,
   basePath: string,
-  options?: { singleThread?: boolean }
+  options?: { singleThread?: boolean },
 ): Promise<FullProveResult> {
-  return prove(
-    input,
-    `${basePath}.wasm`,
-    `${basePath}.zkey`,
-    options
-  );
+  return prove(input, `${basePath}.wasm`, `${basePath}.zkey`, options);
 }
 
 /**
@@ -109,7 +110,7 @@ function negateG1Y(yBytes: number[]): number[] {
   // Negate: y_neg = p - y
   const yNeg = BN254_FIELD_MODULUS.sub(y);
   // Convert back to 32-byte big-endian array
-  const result = yNeg.toArray('be', 32);
+  const result = yNeg.toArray("be", 32);
   return result;
 }
 
@@ -119,7 +120,7 @@ function negateG1Y(yBytes: number[]): number[] {
  */
 export function parseProofToBytesArray(
   proof: Proof,
-  compressed: boolean = false
+  compressed: boolean = false,
 ): {
   proofA: number[];
   proofB: number[];
@@ -129,17 +130,17 @@ export function parseProofToBytesArray(
 
   try {
     for (const i in mydata) {
-      if (i === 'pi_a' || i === 'pi_c') {
+      if (i === "pi_a" || i === "pi_c") {
         for (const j in mydata[i]) {
           mydata[i][j] = Array.from(
-            utils.leInt2Buff(utils.unstringifyBigInts(mydata[i][j]), 32)
+            utils.leInt2Buff(utils.unstringifyBigInts(mydata[i][j]), 32),
           ).reverse();
         }
-      } else if (i === 'pi_b') {
+      } else if (i === "pi_b") {
         for (const j in mydata[i]) {
           for (const z in mydata[i][j]) {
             mydata[i][j][z] = Array.from(
-              utils.leInt2Buff(utils.unstringifyBigInts(mydata[i][j][z]), 32)
+              utils.leInt2Buff(utils.unstringifyBigInts(mydata[i][j][z]), 32),
             );
           }
         }
@@ -148,19 +149,23 @@ export function parseProofToBytesArray(
 
     if (compressed) {
       const proofA = mydata.pi_a[0];
-      const proofAIsPositive = !yElementIsPositiveG1(new anchor.BN(mydata.pi_a[1]));
+      const proofAIsPositive = !yElementIsPositiveG1(
+        new anchor.BN(mydata.pi_a[1]),
+      );
       proofA[0] = addBitmaskToByte(proofA[0], proofAIsPositive);
 
       const proofB = mydata.pi_b[0].flat().reverse();
       const proofBY = mydata.pi_b[1].flat().reverse();
       const proofBIsPositive = yElementIsPositiveG2(
         new anchor.BN(proofBY.slice(0, 32)),
-        new anchor.BN(proofBY.slice(32, 64))
+        new anchor.BN(proofBY.slice(32, 64)),
       );
       proofB[0] = addBitmaskToByte(proofB[0], proofBIsPositive);
 
       const proofC = mydata.pi_c[0];
-      const proofCIsPositive = yElementIsPositiveG1(new anchor.BN(mydata.pi_c[1]));
+      const proofCIsPositive = yElementIsPositiveG1(
+        new anchor.BN(mydata.pi_c[1]),
+      );
       proofC[0] = addBitmaskToByte(proofC[0], proofCIsPositive);
 
       return { proofA, proofB, proofC };
@@ -180,7 +185,7 @@ export function parseProofToBytesArray(
       proofC: [mydata.pi_c[0], mydata.pi_c[1]].flat(),
     };
   } catch (error) {
-    logger.error('Error while parsing the proof:', error);
+    logger.error("Error while parsing the proof:", error);
     throw error;
   }
 }
@@ -194,14 +199,14 @@ export function parseToBytesArray(publicSignals: string[]): number[][] {
 
     for (const signal of publicSignals) {
       const ref: number[] = Array.from(
-        utils.leInt2Buff(utils.unstringifyBigInts(signal), 32) as Uint8Array
+        utils.leInt2Buff(utils.unstringifyBigInts(signal), 32) as Uint8Array,
       ).reverse() as number[];
       publicInputsBytes.push(ref);
     }
 
     return publicInputsBytes;
   } catch (error) {
-    logger.error('Error while parsing public inputs:', error);
+    logger.error("Error while parsing public inputs:", error);
     throw error;
   }
 }
@@ -216,7 +221,10 @@ function yElementIsPositiveG1(yElement: anchor.BN): boolean {
 /**
  * Check if y element is positive in G2
  */
-function yElementIsPositiveG2(yElement1: anchor.BN, yElement2: anchor.BN): boolean {
+function yElementIsPositiveG2(
+  yElement1: anchor.BN,
+  yElement2: anchor.BN,
+): boolean {
   const fieldMidpoint = FIELD_SIZE.div(new anchor.BN(2));
 
   if (yElement1.lt(fieldMidpoint)) {
@@ -238,4 +246,4 @@ function addBitmaskToByte(byte: number, yIsPositive: boolean): number {
   return byte;
 }
 
-export type { Proof, FullProveResult };
+export type { FullProveResult, Proof };

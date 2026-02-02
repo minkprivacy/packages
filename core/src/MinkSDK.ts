@@ -502,22 +502,48 @@ export class MinkSDK {
     // Record timestamp BEFORE the on-chain action (so UTXOs from this tx are included)
     await this.recordFirstSeenTimestamp();
 
-    return deposit({
-      publicKey: this.publicKey!,
-      connection: this.connection,
-      amountLamports: params.amount,
-      storage: this.storage,
-      encryptionService: this.encryptionService,
-      zkAssetsPath: this.zkAssetsPath,
-      lightWasm: this.lightWasm!,
-      transactionSigner: this.signTransaction!,
-      programId: this.programId,
-      altAddress: this.altAddress,
-      relayerUrl: this.relayerUrl,
-      referrer: params.referrer,
-      onStatusChange: this.onStatusChange,
-      getAuthToken: this.getAuthTokenGetter(),
-    });
+    const amount = BigInt(params.amount);
+    this.emit('deposit:start', { amount });
+
+    // Wrap onStatusChange to emit granular events
+    let proofEmitted = false;
+    let submittedEmitted = false;
+    const wrappedStatusChange = (status: string) => {
+      this.onStatusChange?.(status);
+      this.emit('status:changed', { status });
+      if (!proofEmitted && status.toLowerCase().includes('signing')) {
+        proofEmitted = true;
+        this.emit('deposit:proofGenerated', { amount });
+      }
+      if (!submittedEmitted && status.toLowerCase().includes('submitting')) {
+        submittedEmitted = true;
+        this.emit('deposit:submitted', { signature: '', amount });
+      }
+    };
+
+    try {
+      const result = await deposit({
+        publicKey: this.publicKey!,
+        connection: this.connection,
+        amountLamports: params.amount,
+        storage: this.storage,
+        encryptionService: this.encryptionService,
+        zkAssetsPath: this.zkAssetsPath,
+        lightWasm: this.lightWasm!,
+        transactionSigner: this.signTransaction!,
+        programId: this.programId,
+        altAddress: this.altAddress,
+        relayerUrl: this.relayerUrl,
+        referrer: params.referrer,
+        onStatusChange: wrappedStatusChange,
+        getAuthToken: this.getAuthTokenGetter(),
+      });
+      this.emit('deposit:confirmed', { signature: result.signature, amount, commitment: '' });
+      return result;
+    } catch (error) {
+      this.emit('deposit:error', { error: error as any });
+      throw error;
+    }
   }
 
   /**
@@ -539,24 +565,49 @@ export class MinkSDK {
     const networkType = this.network === 'mainnet' ? 'mainnet' : 'devnet';
     const mint = getTokenMint(params.token, networkType);
 
-    return depositToken({
-      publicKey: this.publicKey!,
-      connection: this.connection,
-      amount: params.amount,
-      mint,
-      storage: this.storage,
-      encryptionService: this.encryptionService,
-      zkAssetsPath: this.zkAssetsPath,
-      lightWasm: this.lightWasm!,
-      transactionSigner: this.signTransaction!,
-      programId: this.programId,
-      altAddress: this.altAddress,
-      relayerUrl: this.relayerUrl,
-      referrer: params.referrer,
-      onStatusChange: this.onStatusChange,
-      getAuthToken: this.getAuthTokenGetter(),
-      tokenName: params.token,
-    });
+    const amount = BigInt(params.amount);
+    this.emit('deposit:start', { amount, token: params.token });
+
+    let proofEmitted = false;
+    let submittedEmitted = false;
+    const wrappedStatusChange = (status: string) => {
+      this.onStatusChange?.(status);
+      this.emit('status:changed', { status });
+      if (!proofEmitted && status.toLowerCase().includes('signing')) {
+        proofEmitted = true;
+        this.emit('deposit:proofGenerated', { amount });
+      }
+      if (!submittedEmitted && status.toLowerCase().includes('submitting')) {
+        submittedEmitted = true;
+        this.emit('deposit:submitted', { signature: '', amount });
+      }
+    };
+
+    try {
+      const result = await depositToken({
+        publicKey: this.publicKey!,
+        connection: this.connection,
+        amount: params.amount,
+        mint,
+        storage: this.storage,
+        encryptionService: this.encryptionService,
+        zkAssetsPath: this.zkAssetsPath,
+        lightWasm: this.lightWasm!,
+        transactionSigner: this.signTransaction!,
+        programId: this.programId,
+        altAddress: this.altAddress,
+        relayerUrl: this.relayerUrl,
+        referrer: params.referrer,
+        onStatusChange: wrappedStatusChange,
+        getAuthToken: this.getAuthTokenGetter(),
+        tokenName: params.token,
+      });
+      this.emit('deposit:confirmed', { signature: result.signature, amount, commitment: '' });
+      return result;
+    } catch (error) {
+      this.emit('deposit:error', { error: error as any });
+      throw error;
+    }
   }
 
   /**
@@ -571,22 +622,47 @@ export class MinkSDK {
       ? new PublicKey(params.recipientAddress)
       : this.publicKey!;
 
-    return withdraw({
-      publicKey: this.publicKey!,
-      connection: this.connection,
-      amountLamports: params.amount,
-      recipient,
-      storage: this.storage,
-      encryptionService: this.encryptionService,
-      zkAssetsPath: this.zkAssetsPath,
-      lightWasm: this.lightWasm!,
-      programId: this.programId,
-      altAddress: this.altAddress,
-      relayerUrl: this.relayerUrl,
-      referrer: params.referrer,
-      onStatusChange: this.onStatusChange,
-      getAuthToken: this.getAuthTokenGetter(),
-    });
+    const amount = BigInt(params.amount);
+    this.emit('withdraw:start', { amount, recipient: recipient.toBase58() });
+
+    let proofEmitted = false;
+    let submittedEmitted = false;
+    const wrappedStatusChange = (status: string) => {
+      this.onStatusChange?.(status);
+      this.emit('status:changed', { status });
+      if (!proofEmitted && status.toLowerCase().includes('submitting')) {
+        proofEmitted = true;
+        this.emit('withdraw:proofGenerated', { amount });
+      }
+      if (!submittedEmitted && status.toLowerCase().includes('waiting')) {
+        submittedEmitted = true;
+        this.emit('withdraw:submitted', { jobId: '', amount });
+      }
+    };
+
+    try {
+      const result = await withdraw({
+        publicKey: this.publicKey!,
+        connection: this.connection,
+        amountLamports: params.amount,
+        recipient,
+        storage: this.storage,
+        encryptionService: this.encryptionService,
+        zkAssetsPath: this.zkAssetsPath,
+        lightWasm: this.lightWasm!,
+        programId: this.programId,
+        altAddress: this.altAddress,
+        relayerUrl: this.relayerUrl,
+        referrer: params.referrer,
+        onStatusChange: wrappedStatusChange,
+        getAuthToken: this.getAuthTokenGetter(),
+      });
+      this.emit('withdraw:confirmed', { signature: result.signature, amount, fee: BigInt(0) });
+      return result;
+    } catch (error) {
+      this.emit('withdraw:error', { error: error as any });
+      throw error;
+    }
   }
 
   /**

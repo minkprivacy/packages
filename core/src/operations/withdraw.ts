@@ -293,16 +293,22 @@ export async function withdraw({
     throw new Error('No balance available for withdrawal');
   }
 
-  // Adjust for partial withdrawal if needed
+  // Reject if requested amount exceeds available balance
   if (totalInputAmount.lt(new BN(amountLamports))) {
-    isPartial = true;
-    amountLamports = totalInputAmount.toNumber();
-    withdrawAmountLamports = amountLamports - feeLamports;
-    logger.debug(`Partial withdrawal: ${amountLamports} lamports`);
+    throw new Error(
+      `Insufficient balance: requested ${amountLamports / LAMPORTS_PER_SOL} SOL but only ${totalInputAmount.toNumber() / LAMPORTS_PER_SOL} SOL available in UTXOs`
+    );
   }
 
   // Calculate change amount
   const changeAmount = totalInputAmount.sub(new BN(withdrawAmountLamports)).sub(new BN(feeLamports));
+
+  if (changeAmount.lt(new BN(0))) {
+    throw new Error(
+      `Insufficient balance after fee: need ${(withdrawAmountLamports + feeLamports) / LAMPORTS_PER_SOL} SOL (amount + fee) but only ${totalInputAmount.toNumber() / LAMPORTS_PER_SOL} SOL available`
+    );
+  }
+
   logger.debug(`Withdrawing ${withdrawAmountLamports} lamports, fee ${feeLamports}, change ${changeAmount.toString()}`);
 
   // Get Merkle proofs for inputs
@@ -479,9 +485,7 @@ export async function withdraw({
   );
 
   // Serialize proof with 'withdraw' type to use REVEAL discriminator
-  // SOL mint is represented as all zeros in the program
-  const solMintBytes = new Uint8Array(32);
-
+  // mint must match what was used in getExtDataHash (inputs[0].mintAddress)
   const serializedProof = serializeProofAndExtData(proofToSubmit, {
     extAmount: extAmount,
     fee: feeLamports,
@@ -489,7 +493,7 @@ export async function withdraw({
     encryptedOutput2,
     recipient: recipient.toBytes(),
     relayer: feeRecipient.toBytes(),
-    mint: solMintBytes,
+    mint: new PublicKey(inputs[0].mintAddress).toBytes(),
   }, false, 'withdraw');
 
   // Prepare withdraw params for relayer

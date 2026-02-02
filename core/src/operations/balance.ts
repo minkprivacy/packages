@@ -145,7 +145,7 @@ export async function getUtxos({
     // Build URL with optional from_timestamp parameter for backend filtering
     // Subtract 30 minutes (1800 seconds) as safety margin to ensure UTXOs aren't missed
     // due to timing issues when timestamp was recorded after the transaction
-    let fetchUrl = `${relayerUrl}/utxos/range?start=${fetchUtxoOffset}&end=${fetchUtxoEnd}&mint=${encodeURIComponent(mint)}`;
+    let fetchUrl = `${relayerUrl}/utxos/range?start=0&end=${fetchUtxoEnd}&mint=${encodeURIComponent(mint)}`;
     if (fromTimestamp !== undefined) {
       const safeTimestamp = Math.max(0, fromTimestamp - 1800); // 30 min safety margin
       fetchUrl += `&from_timestamp=${safeTimestamp}`;
