@@ -10,8 +10,6 @@
 import type { LightWasm } from "@lightprotocol/hasher.rs";
 import { Connection, PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
-import { Keypair } from "../crypto/keypair.js";
-import type { AuthTokenGetter } from "../types/index.js";
 import {
   DEFAULT_PROGRAM_ID,
   DEFAULT_ZK_ASSETS_PATH,
@@ -29,16 +27,18 @@ import {
   generateEphemeralKeypair,
   secureZeroKey,
 } from "../crypto/ecdh.js";
+import { Keypair } from "../crypto/keypair.js";
+import { ConsoleLogger } from "../logger/console.js";
 import {
   bytesToHex,
   getExtDataHash,
   getMintAddressField,
   queryRemoteTreeState,
 } from "../operations/helpers.js";
-import { ConsoleLogger } from '../logger/console.js';
 import { parseProofToBytesArray, prove } from "../proofs/prover.js";
+import type { AuthTokenGetter } from "../types/index.js";
 
-const logger = new ConsoleLogger({ prefix: '[Mink]', minLevel: 'info' });
+const logger = new ConsoleLogger({ prefix: "[Mink]", minLevel: "info" });
 
 /**
  * Inbox status
@@ -361,17 +361,25 @@ export class PrivateInboxManager {
     // Check if user already has an inbox for this mint
     // If so, return the first existing one instead of creating duplicate
     if (nonce > 0) {
-      logger.debug(`User already has ${nonce} inbox(es) for mint ${mint.toBase58()}`);
+      logger.debug(
+        `User already has ${nonce} inbox(es) for mint ${mint.toBase58()}`,
+      );
 
       // Try to fetch the first inbox (nonce 0)
       const existingInbox = await this.getInbox(mint, 0);
       if (existingInbox) {
-        logger.info(`Returning existing inbox at nonce 0 instead of creating new one`);
+        logger.info(
+          `Returning existing inbox at nonce 0 instead of creating new one`,
+        );
         // Add to cache if not already there
-        if (!this.cachedInboxes.find(i => i.address.equals(existingInbox.address))) {
+        if (
+          !this.cachedInboxes.find((i) =>
+            i.address.equals(existingInbox.address),
+          )
+        ) {
           this.cachedInboxes.push(existingInbox);
         }
-        return { inbox: existingInbox, signature: 'existing' };
+        return { inbox: existingInbox, signature: "existing" };
       }
     }
 
@@ -380,14 +388,20 @@ export class PrivateInboxManager {
     const [checkPDA] = this.deriveInboxPDA(mint, 0);
     const existingAccount = await this.connection.getAccountInfo(checkPDA);
     if (existingAccount) {
-      logger.debug(`Inbox PDA already exists at ${checkPDA.toBase58()}, fetching data...`);
+      logger.debug(
+        `Inbox PDA already exists at ${checkPDA.toBase58()}, fetching data...`,
+      );
       const existingInbox = await this.getInbox(mint, 0);
       if (existingInbox) {
         logger.info(`Returning existing inbox instead of creating duplicate`);
-        if (!this.cachedInboxes.find(i => i.address.equals(existingInbox.address))) {
+        if (
+          !this.cachedInboxes.find((i) =>
+            i.address.equals(existingInbox.address),
+          )
+        ) {
           this.cachedInboxes.push(existingInbox);
         }
-        return { inbox: existingInbox, signature: 'existing' };
+        return { inbox: existingInbox, signature: "existing" };
       }
     }
 
@@ -506,9 +520,9 @@ export class PrivateInboxManager {
       };
       if (token) {
         headers["Authorization"] = `Bearer ${token}`;
-        logger.info('[getPendingInboxes] Using auth token');
+        logger.info("[getPendingInboxes] Using auth token");
       } else {
-        logger.warn('[getPendingInboxes] No auth token available');
+        logger.warn("[getPendingInboxes] No auth token available");
       }
 
       const queryParams = new URLSearchParams({
@@ -593,7 +607,9 @@ export class PrivateInboxManager {
         return [];
       }
 
-      logger.debug(`Discovering ${inboxCount} inboxes on-chain for mint ${mint.toBase58()}`);
+      logger.debug(
+        `Discovering ${inboxCount} inboxes on-chain for mint ${mint.toBase58()}`,
+      );
 
       // Fetch each inbox by nonce
       for (let nonce = 0; nonce < inboxCount; nonce++) {
@@ -630,9 +646,9 @@ export class PrivateInboxManager {
       };
       if (token) {
         headers["Authorization"] = `Bearer ${token}`;
-        logger.info('[getInboxes] Using auth token');
+        logger.info("[getInboxes] Using auth token");
       } else {
-        logger.warn('[getInboxes] No auth token available');
+        logger.warn("[getInboxes] No auth token available");
       }
 
       const queryParams = new URLSearchParams({
@@ -683,9 +699,13 @@ export class PrivateInboxManager {
                 : (inbox.status as InboxStatus),
           }));
 
-          logger.info(`[getInboxes] Fetched ${inboxes.length} inboxes from API`);
+          logger.info(
+            `[getInboxes] Fetched ${inboxes.length} inboxes from API`,
+          );
         } else {
-          logger.info(`[getInboxes] API returned empty or failed: success=${result.success}, count=${result.data?.inboxes?.length ?? 0}`);
+          logger.info(
+            `[getInboxes] API returned empty or failed: success=${result.success}, count=${result.data?.inboxes?.length ?? 0}`,
+          );
         }
       } else {
         const errorText = await response.text();
@@ -697,7 +717,9 @@ export class PrivateInboxManager {
 
     // Fallback to on-chain discovery if API returned empty or failed
     if (inboxes.length === 0) {
-      logger.info("[getInboxes] API returned no inboxes, trying on-chain discovery...");
+      logger.info(
+        "[getInboxes] API returned no inboxes, trying on-chain discovery...",
+      );
 
       // If mint specified, only discover for that mint
       // Otherwise, discover for SOL (most common)
@@ -733,8 +755,8 @@ export class PrivateInboxManager {
     }
 
     // Update cache
-    const index = this.cachedInboxes.findIndex(
-      (i) => i.address.equals(inbox.address)
+    const index = this.cachedInboxes.findIndex((i) =>
+      i.address.equals(inbox.address),
     );
     if (index >= 0) {
       this.cachedInboxes[index] = refreshed;
@@ -904,7 +926,6 @@ export class PrivateInboxManager {
 
     // 9. Create encrypted outputs
     try {
-
       // Encrypt output 0 (real amount)
       const encryptedOutput1 = await encryptNoteV3(
         ephemeralKeypair.publicKey,
@@ -942,7 +963,7 @@ export class PrivateInboxManager {
         feeRecipient: extData.relayer,
         mintAddress: extData.mint,
       });
-      const extDataHash = new BN(extDataHashBytes).mod(FIELD_SIZE).toString();
+      const extDataHash = extDataHashBytes;
 
       // 11. Calculate publicAmount as field element (positive = deposit)
       // For ZK circuit, publicAmount needs to be in field representation
@@ -1046,17 +1067,19 @@ export class PrivateInboxManager {
     // Get rent exempt minimum from Solana (same as Rent::get()?.minimum_balance in Rust)
     // PrivateInbox::LEN = 8 + 32 + 32 + 32 + 8 + 1 + 2 + 8 + 8 + 1 + 1 = 133 bytes
     const PRIVATE_INBOX_LEN = 133;
-    const rentExemptMinimum = await this.connection.getMinimumBalanceForRentExemption(
-      PRIVATE_INBOX_LEN,
-    );
+    const rentExemptMinimum =
+      await this.connection.getMinimumBalanceForRentExemption(
+        PRIVATE_INBOX_LEN,
+      );
 
     // Forwardable amount = lamports - rent (same calculation as on-chain)
-    const forwardableAmount = inboxLamports > rentExemptMinimum
-      ? inboxLamports - rentExemptMinimum
-      : 0;
+    const forwardableAmount =
+      inboxLamports > rentExemptMinimum ? inboxLamports - rentExemptMinimum : 0;
 
     if (forwardableAmount === 0) {
-      throw new Error("No balance to forward (inbox balance below rent minimum)");
+      throw new Error(
+        "No balance to forward (inbox balance below rent minimum)",
+      );
     }
 
     // 2. Calculate fee and net amount (same logic as on-chain)
@@ -1067,7 +1090,7 @@ export class PrivateInboxManager {
 
     logger.debug(
       `Forward calculation: inboxLamports=${inboxLamports}, rent=${rentExemptMinimum}, ` +
-      `forwardable=${forwardableAmount}, feeBps=${feeBps}, fee=${fee}, netAmount=${netAmount}`,
+        `forwardable=${forwardableAmount}, feeBps=${feeBps}, fee=${fee}, netAmount=${netAmount}`,
     );
 
     if (netAmount <= BigInt(0)) {
