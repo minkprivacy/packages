@@ -30,7 +30,6 @@ Deposits SOL into the privacy pool.
 | `programId` | `PublicKey` | no | Protocol program ID |
 | `altAddress` | `PublicKey` | no | Address Lookup Table |
 | `relayerUrl` | `string` | no | Relayer API URL |
-| `referrer` | `string` | no | Referral address |
 | `onStatusChange` | `(status: string) => void` | no | Progress callback |
 | `getAuthToken` | `() => Promise<string \| null>` | no | Auth token getter |
 

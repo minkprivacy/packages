@@ -14,6 +14,7 @@ export {
   type CloakTokenParams,
   type CloakResult,
   type RevealParams,
+  type RevealTokenParams,
   type RevealResult,
   type StealthBalance,
 } from './MinkSDK.js';
@@ -35,8 +36,8 @@ export { deposit, depositToken } from './operations/deposit.js';
 export type { DepositParams, DepositTokenParams } from './operations/deposit.js';
 export { getBalanceFromUtxos, getUtxos, isUtxoSpent, localStorageKey } from './operations/balance.js';
 export type { GetUtxosParams } from './operations/balance.js';
-export { withdraw, clearRelayerConfigCache } from './operations/withdraw.js';
-export type { WithdrawParams } from './operations/withdraw.js';
+export { withdraw, withdrawToken, clearRelayerConfigCache } from './operations/withdraw.js';
+export type { WithdrawParams, WithdrawTokenParams } from './operations/withdraw.js';
 
 // Crypto
 export { Keypair } from './crypto/keypair.js';

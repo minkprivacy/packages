@@ -17,8 +17,6 @@ export type NumericInput = bigint | string | number;
 export interface DepositParams {
   /** Amount in lamports */
   amount: NumericInput;
-  /** Optional referrer address */
-  referrer?: string;
 }
 
 /**
@@ -29,8 +27,6 @@ export interface DepositTokenParams {
   token: TokenName;
   /** Amount in base units (e.g., 1 USDC = 1_000_000) */
   amount: NumericInput;
-  /** Optional referrer address */
-  referrer?: string;
 }
 
 /**
@@ -53,8 +49,6 @@ export interface WithdrawParams {
   amount: NumericInput;
   /** Recipient address (defaults to connected wallet) */
   recipientAddress?: string;
-  /** Optional referrer address */
-  referrer?: string;
 }
 
 /**

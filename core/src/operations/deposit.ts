@@ -256,7 +256,6 @@ export interface DepositParams {
   programId?: PublicKey;
   altAddress?: PublicKey;
   relayerUrl?: string;
-  referrer?: string;
   onStatusChange?: (status: string) => void;
   getAuthToken?: AuthTokenGetter;
 }
@@ -268,7 +267,6 @@ export interface DepositParams {
 async function relayDepositToIndexer(
   signedTransaction: string,
   relayerUrl: string,
-  referrer?: string,
   getAuthToken?: AuthTokenGetter,
 ): Promise<string> {
   logger.debug("Relaying pre-signed deposit transaction to indexer backend...");
@@ -277,10 +275,6 @@ async function relayDepositToIndexer(
   const params: Record<string, string> = {
     signedTransaction,
   };
-
-  if (referrer) {
-    params.referralWalletAddress = referrer;
-  }
 
   // Build headers with auth token if available
   const headers: Record<string, string> = {
@@ -386,7 +380,6 @@ export async function deposit({
   programId = DEFAULT_PROGRAM_ID,
   altAddress = DEFAULT_ALT_ADDRESS,
   relayerUrl = RELAYER_API_URL,
-  referrer,
   onStatusChange,
   getAuthToken,
 }: DepositParams): Promise<DepositResult> {
@@ -811,7 +804,6 @@ export async function deposit({
   const signature = await relayDepositToIndexer(
     serializedTransaction,
     relayerUrl,
-    referrer,
     getAuthToken,
   );
 
@@ -879,7 +871,6 @@ export interface DepositTokenParams {
   programId?: PublicKey;
   altAddress?: PublicKey;
   relayerUrl?: string;
-  referrer?: string;
   onStatusChange?: (status: string) => void;
   getAuthToken?: AuthTokenGetter;
   tokenName?: TokenName; // For relayer API calls (e.g., 'USDC')
@@ -995,7 +986,6 @@ export async function depositToken({
   programId = DEFAULT_PROGRAM_ID,
   altAddress = DEFAULT_ALT_ADDRESS,
   relayerUrl = RELAYER_API_URL,
-  referrer,
   onStatusChange,
   getAuthToken,
   tokenName,
@@ -1592,7 +1582,6 @@ export async function depositToken({
   const signature = await relayDepositToIndexer(
     serializedTransaction,
     relayerUrl,
-    referrer,
     getAuthToken,
   );
 

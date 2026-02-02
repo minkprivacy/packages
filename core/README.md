@@ -127,7 +127,6 @@ See [docs/events.md](./docs/events.md) for the full event list.
 ```typescript
 // Deposit SOL
 await sdk.cloak({ amount: 0.5 });             // in SOL
-await sdk.cloak({ amount: 0.5, referrer: '...' });
 
 // Deposit SPL token
 await sdk.cloakToken({ token: 'USDC', amount: 1_000_000 }); // base units

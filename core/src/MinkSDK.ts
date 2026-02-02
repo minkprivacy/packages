@@ -18,7 +18,7 @@ import {
   type NetworkConfig,
 } from './network/presets.js';
 import { deposit, depositToken } from './operations/deposit.js';
-import { withdraw } from './operations/withdraw.js';
+import { withdraw, withdrawToken } from './operations/withdraw.js';
 import { getUtxos, getBalanceFromUtxos } from './operations/balance.js';
 import { type TokenName, getTokenMint } from './crypto/constants.js';
 import { ViewingKeyManager, ViewingScope, type SerializedViewingKey } from './viewing-keys/manager.js';
@@ -84,8 +84,6 @@ export type StealthBalance = BalanceResult;
 export interface CloakParams {
   /** Amount in lamports */
   amount: number;
-  /** Optional referrer address */
-  referrer?: string;
 }
 
 export interface RevealParams {
@@ -93,8 +91,6 @@ export interface RevealParams {
   amount: number;
   /** Recipient address (defaults to connected wallet) */
   recipientAddress?: string;
-  /** Optional referrer address */
-  referrer?: string;
 }
 
 export interface CloakTokenParams {
@@ -102,8 +98,15 @@ export interface CloakTokenParams {
   token: TokenName;
   /** Amount in base units (e.g., 1 USDC = 1_000_000) */
   amount: number;
-  /** Optional referrer address */
-  referrer?: string;
+}
+
+export interface RevealTokenParams {
+  /** Token name: 'USDC' or 'USDT' */
+  token: TokenName;
+  /** Amount in base units (e.g., 1 USDC = 1_000_000) */
+  amount: number;
+  /** Recipient address (defaults to connected wallet) */
+  recipientAddress?: string;
 }
 
 /**
@@ -534,7 +537,6 @@ export class MinkSDK {
         programId: this.programId,
         altAddress: this.altAddress,
         relayerUrl: this.relayerUrl,
-        referrer: params.referrer,
         onStatusChange: wrappedStatusChange,
         getAuthToken: this.getAuthTokenGetter(),
       });
@@ -597,7 +599,6 @@ export class MinkSDK {
         programId: this.programId,
         altAddress: this.altAddress,
         relayerUrl: this.relayerUrl,
-        referrer: params.referrer,
         onStatusChange: wrappedStatusChange,
         getAuthToken: this.getAuthTokenGetter(),
         tokenName: params.token,
@@ -653,7 +654,6 @@ export class MinkSDK {
         programId: this.programId,
         altAddress: this.altAddress,
         relayerUrl: this.relayerUrl,
-        referrer: params.referrer,
         onStatusChange: wrappedStatusChange,
         getAuthToken: this.getAuthTokenGetter(),
       });
@@ -663,6 +663,84 @@ export class MinkSDK {
       this.emit('withdraw:error', { error: error as any });
       throw error;
     }
+  }
+
+  /**
+   * Reveal SPL tokens from the StealthVault (withdraw)
+   *
+   * Converts private token UTXOs back to public SPL tokens.
+   */
+  async revealToken(params: RevealTokenParams): Promise<RevealResult> {
+    this.ensureInitialized();
+
+    if (params.token === 'SOL') {
+      throw new Error('Use reveal() for SOL withdrawals, not revealToken()');
+    }
+
+    const recipient = params.recipientAddress
+      ? new PublicKey(params.recipientAddress)
+      : this.publicKey!;
+
+    const networkType = this.network === 'mainnet' ? 'mainnet' : 'devnet';
+    const mint = getTokenMint(params.token, networkType);
+
+    const amount = BigInt(params.amount);
+    this.emit('withdraw:start', { amount, recipient: recipient.toBase58() });
+
+    let proofEmitted = false;
+    let submittedEmitted = false;
+    const wrappedStatusChange = (status: string) => {
+      this.onStatusChange?.(status);
+      this.emit('status:changed', { status });
+      if (!proofEmitted && status.toLowerCase().includes('submitting')) {
+        proofEmitted = true;
+        this.emit('withdraw:proofGenerated', { amount });
+      }
+      if (!submittedEmitted && status.toLowerCase().includes('waiting')) {
+        submittedEmitted = true;
+        this.emit('withdraw:submitted', { jobId: '', amount });
+      }
+    };
+
+    try {
+      const result = await withdrawToken({
+        publicKey: this.publicKey!,
+        connection: this.connection,
+        amountLamports: params.amount,
+        recipient,
+        mint,
+        storage: this.storage,
+        encryptionService: this.encryptionService,
+        zkAssetsPath: this.zkAssetsPath,
+        lightWasm: this.lightWasm!,
+        programId: this.programId,
+        altAddress: this.altAddress,
+        relayerUrl: this.relayerUrl,
+        onStatusChange: wrappedStatusChange,
+        getAuthToken: this.getAuthTokenGetter(),
+      });
+      this.emit('withdraw:confirmed', { signature: result.signature, amount, fee: BigInt(0) });
+      return result;
+    } catch (error) {
+      this.emit('withdraw:error', { error: error as any });
+      throw error;
+    }
+  }
+
+  /**
+   * Calculate reveal fee for a token withdrawal
+   * Token fees are percentage only (no rent fee)
+   */
+  async calculateRevealTokenFee(amount: number): Promise<{
+    feeBaseUnits: number;
+    netAmount: number;
+  }> {
+    const config = await this.getRelayerConfig();
+    const feeBaseUnits = Math.floor(amount * config.withdraw_fee_rate_bps / 10000);
+    return {
+      feeBaseUnits,
+      netAmount: amount - feeBaseUnits,
+    };
   }
 
   /**
@@ -789,6 +867,9 @@ export class MinkSDK {
 
   /** @alias reveal - Withdraw SOL from privacy pool */
   withdraw = this.reveal.bind(this);
+
+  /** @alias revealToken - Withdraw SPL tokens from privacy pool */
+  withdrawToken = this.revealToken.bind(this);
 
   /** @alias getStealthBalance */
   getPrivateBalance = this.getStealthBalance.bind(this);
