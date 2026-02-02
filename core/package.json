@@ -1,0 +1,103 @@
+{
+  "name": "@minkprivacy/core",
+  "version": "0.1.0",
+  "description": "Mink Privacy SDK - Core library for private Solana transactions",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+      "require": { "types": "./dist/index.d.cts", "default": "./dist/index.cjs" }
+    },
+    "./crypto": {
+      "import": { "types": "./dist/crypto/index.d.ts", "default": "./dist/crypto/index.js" },
+      "require": { "types": "./dist/crypto/index.d.cts", "default": "./dist/crypto/index.cjs" }
+    },
+    "./proofs": {
+      "import": { "types": "./dist/proofs/index.d.ts", "default": "./dist/proofs/index.js" },
+      "require": { "types": "./dist/proofs/index.d.cts", "default": "./dist/proofs/index.cjs" }
+    },
+    "./merkle": {
+      "import": { "types": "./dist/merkle/index.d.ts", "default": "./dist/merkle/index.js" },
+      "require": { "types": "./dist/merkle/index.d.cts", "default": "./dist/merkle/index.cjs" }
+    },
+    "./storage": {
+      "import": { "types": "./dist/storage/index.d.ts", "default": "./dist/storage/index.js" },
+      "require": { "types": "./dist/storage/index.d.cts", "default": "./dist/storage/index.cjs" }
+    },
+    "./errors": {
+      "import": { "types": "./dist/errors/index.d.ts", "default": "./dist/errors/index.js" },
+      "require": { "types": "./dist/errors/index.d.cts", "default": "./dist/errors/index.cjs" }
+    },
+    "./network": {
+      "import": { "types": "./dist/network/index.d.ts", "default": "./dist/network/index.js" },
+      "require": { "types": "./dist/network/index.d.cts", "default": "./dist/network/index.cjs" }
+    },
+    "./models": {
+      "import": { "types": "./dist/models/index.d.ts", "default": "./dist/models/index.js" },
+      "require": { "types": "./dist/models/index.d.cts", "default": "./dist/models/index.cjs" }
+    },
+    "./operations": {
+      "import": { "types": "./dist/operations/index.d.ts", "default": "./dist/operations/index.js" },
+      "require": { "types": "./dist/operations/index.d.cts", "default": "./dist/operations/index.cjs" }
+    },
+    "./inbox": {
+      "import": { "types": "./dist/inbox/index.d.ts", "default": "./dist/inbox/index.js" },
+      "require": { "types": "./dist/inbox/index.d.cts", "default": "./dist/inbox/index.cjs" }
+    },
+    "./viewing-keys": {
+      "import": { "types": "./dist/viewing-keys/index.d.ts", "default": "./dist/viewing-keys/index.js" },
+      "require": { "types": "./dist/viewing-keys/index.d.cts", "default": "./dist/viewing-keys/index.cjs" }
+    }
+  },
+  "files": ["dist", "README.md", "CHANGELOG.md"],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "docs": "typedoc"
+  },
+  "keywords": ["solana", "privacy", "zk", "stealth", "mink", "sdk", "core"],
+  "author": "Mink Privacy",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/minkprivacy/packages",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/minkprivacy/packages#readme",
+  "bugs": {
+    "url": "https://github.com/minkprivacy/packages/issues"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.31.1",
+"@noble/curves": "^1.4.0",
+    "@noble/hashes": "^1.4.0",
+    "bn.js": "^5.2.2",
+    "borsh": "^2.0.0",
+    "bs58": "^6.0.0",
+    "ethers": "^6.13.0",
+    "ffjavascript": "^0.3.1",
+    "snarkjs": "^0.7.6"
+  },
+  "devDependencies": {
+    "@lightprotocol/hasher.rs": "^0.2.1",
+    "@solana/web3.js": "^1.98.4",
+    "@types/bn.js": "^5.2.0",
+    "@types/snarkjs": "^0.7.9",
+    "tsup": "^8.3.6",
+    "typedoc": "^0.27.7",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5"
+  },
+  "peerDependencies": {
+    "@lightprotocol/hasher.rs": ">=0.2.0",
+    "@solana/web3.js": ">=1.90.0"
+  },
+  "engines": { "node": ">=18.0.0" }
+}
